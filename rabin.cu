@@ -83,21 +83,24 @@ int rk_matcher(char *str, char *pattern, int d, int q)
 
 }
 
-__global__ void findPatterns(char *d_css, char *pattern, int d, int q)
+__global__ void findHashes(char *d_css, char *pattern, int d, int q)
 {
     printf("Hello World from GPU!\n");
 }
 
 int main(int argc, char *argv[])
 {
+    int i=0;
+    int j=0;
     char * str="bababanaparaver";
     char * pattern="aba";
     int prime=3;
     int q=50;
     int num_cores=4;
 
-    helloFromGPU<<<1, num_cores>>>();
-    CHECK(cudaDeviceReset());
+    findHashes<<<1, num_cores>>>(d_css, pattern, d, q);
+
+    //CHECK(cudaDeviceReset());
 
     int str_length = strlen(str);
     int nElem=str_length;
