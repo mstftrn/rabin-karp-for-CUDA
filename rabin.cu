@@ -3,6 +3,8 @@
 #include <string.h>
 #include <math.h>
 #include "../common/common.h"
+#include <cuda_runtime.h>
+
 /*
  * compute string value, length should be small than strlen
  */
@@ -81,9 +83,9 @@ int rk_matcher(char *str, char *pattern, int d, int q)
 
 }
 
-__global__ void helloFromGPU()
+__global__ void findPatterns(char *d_css, char *pattern, int d, int q)
 {
-        printf("Hello World from GPU!\n");
+    printf("Hello World from GPU!\n");
 }
 
 int main(int argc, char *argv[])
@@ -92,38 +94,54 @@ int main(int argc, char *argv[])
     char * pattern="aba";
     int prime=3;
     int q=50;
+    int num_cores=4;
+
+    helloFromGPU<<<1, num_cores>>>();
+    CHECK(cudaDeviceReset());
 
     int str_length = strlen(str);
+    int nElem=str_length;
     int pattern_length = strlen(pattern);
-    int num_cores=4;
     int chunk_len=(int)ceil((float)str_length/num_cores);
     int padding_len=chunk_len*num_cores-str_length;
     int el_chunk_len=chunk_len+pattern_length-1;
 
-    //matrix which holds the characters, each row will go to a core
-    int tss[num_cores][el_chunk_len];
+    //matrix on host which holds the characters, each row will go to a core
+    char css[num_cores][el_chunk_len];
+    //on the device
+    char *d_css;
+    //hashes on the device
+    int *d_iss;
+    int nchars=num_cores*el_chunk_len;
+    cudaMalloc((char **)&d_css, nchars*sizeof(char));
+    cudaMalloc((int **)&d_iss, nchars*sizeof(int));
     
     //initial zeroes
     for (i=0; i<pattern_length-1; i++)
-    	tss[0][i]=0;
+    	css[0][i]=0;
 
     //first n-1 cores' characters
     for (i=0; i<num_cores-1; i++)
         for (j=0;j<chunk_len;j++)
-            tss[i][j+pattern_length-1]=str[i*chunk_len+j];
+            css[i][j+pattern_length-1]=str[i*chunk_len+j];
     
     //last core's characters
     for (i=(num_cores-1)*chunk_len, j=0; i<str_length;i++,j++)
-        tss[num_cores-1][j+pattern_length-1]=str[i];
+        css[num_cores-1][j+pattern_length-1]=str[i];
     
     //last n-1 cores' padding characters
     for (i=1;i<num_cores;i++)
         for (j=0;j<pattern_length-1;j++)
-            tss[i][j]=tss[i-1][j+chunk_len];
+            css[i][j]=css[i-1][j+chunk_len];
     
     //last core's last paddings
     for (i=0; i<padding_len;i++)
-        tss[num_cores-1][el_chunk_len-i-1]=0;
+        css[num_cores-1][el_chunk_len-i-1]=0;
+
+    //transfer css to device
+    cudaMemcpy(d_css, css, nchars, cudaMemcpyHostToDevice);
+
+    dim3 block (num_cores);//str_length/pattern_length
 
     int pos = rk_matcher(str, pattern, prime, q);
     //printf("%d", pos);
