@@ -70,23 +70,29 @@ int rk_matcher(char *str, char *pattern, int d, int q)
 
 
 
-
+    //hash value of the pattern
     p0 = compute_value(pattern, pattern_length, d, q);
     
+    //hash value of the first char
     ts[0] = compute_value(str, pattern_length, d, q);
 
-    for (i = 1; i < str_length-pattern_length+1; ++i) {/*This line changes, should be until the end*/
-	    ts[i] =
-		(ts[i - 1] * d -
-		 ((str[i - 1] /*- '0'*/) * (int) pow(d,
+    //p does not change, calculate once
+    int p=pow(d, pattern_length-1);
+    for (i = 1; i < str_length-pattern_length+1; i++) 
+    {
+	ts[i] = ((str[i + pattern_length - 1])*p
+                    +(ts[i-1]-(str[i-1]))/d)%q;
+	/*	(ts[i - 1] * d -
+		 ((str[i - 1] - '0') * (int) pow(d,
 						 pattern_length))) % q +
 		(str[i + pattern_length - 1]
-		 /*- '0'*/) % q;
+		 - '0') % q;*/
     }
-    for (i=0;i<str_length;i++)
+
+/*    for (i=0;i<str_length-pattern_length+1;i++)
     {
     	printf("%d ", ts[i]);
-    }
+    }*/
 
     for (i = 0; i <= str_length - pattern_length+1; ++i) {
 	if (ts[i] == p0) {
@@ -106,7 +112,7 @@ int rk_matcher(char *str, char *pattern, int d, int q)
 
 int main(int argc, char *argv[])
 {
-    int pos = rk_matcher("bababanaparaver", "aba", 10, 500000);
+    int pos = rk_matcher("bababanaparaver", "aba", 3, 50);
     //printf("%d", pos);
     return 0;
 }
