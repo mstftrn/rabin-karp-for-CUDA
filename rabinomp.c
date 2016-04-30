@@ -11,7 +11,7 @@ int compute_value(char *str, int length, int d, int q)
     int p0 = 0;
 
     for (i = 0; i < length; ++i) {
-	p0 = (d * p0 + (str[i] - '0')) % q;
+	p0 = (d * p0 + (str[i] /*- '0'*/)) % q;
     }
 
     return p0;
@@ -75,13 +75,13 @@ int rk_matcher(char *str, char *pattern, int d, int q)
     
     ts[0] = compute_value(str, pattern_length, d, q);
 
-    for (i = 1; i < str_length-pattern_length+1; ++i) {
+    for (i = 1; i < str_length-pattern_length+1; ++i) {/*This line changes, should be until the end*/
 	    ts[i] =
 		(ts[i - 1] * d -
-		 ((str[i - 1] - '0') * (int) pow(d,
+		 ((str[i - 1] /*- '0'*/) * (int) pow(d,
 						 pattern_length))) % q +
 		(str[i + pattern_length - 1]
-		 - '0') % q;
+		 /*- '0'*/) % q;
     }
     for (i=0;i<str_length;i++)
     {
