@@ -2,7 +2,7 @@
 //#include <omp.h>
 #include <string.h>
 #include <math.h>
-#include "../common/common.h"
+//#include "../common/common.h"
 #include <cuda_runtime.h>
 
 /*
@@ -83,9 +83,24 @@ int rk_matcher(char *str, char *pattern, int d, int q)
 
 }
 
-__global__ void findHashes(char *d_css, char *pattern, int d, int q)
+__global__ void findHashes(char *d_css, int d_len, int *d_iss, int pattern_length, int d, int q, int p)
 {
-    printf("Hello World from GPU!\n");
+    int i = 0,j=0;
+    int ind=d_len*threadIdx.x;
+    d_iss+=ind;
+    d_css+=ind;
+    d_iss[0]=0;
+    for (; i < pattern_length; i++) {
+        d_iss[0]=(d * d_iss[0] + (d_css[i])) % q;
+    }
+
+   
+    for (i = 1; i < d_len-pattern_length+1; i++)
+   {
+       d_iss[i] = ((d_css[i + pattern_length - 1])*p
+               +(d_iss[i-1]-(d_css[i-1]))/d)%q;
+   } 
+
 }
 
 int main(int argc, char *argv[])
@@ -98,7 +113,6 @@ int main(int argc, char *argv[])
     int q=50;
     int num_cores=4;
 
-    findHashes<<<1, num_cores>>>(d_css, pattern, d, q);
 
     //CHECK(cudaDeviceReset());
 
@@ -111,6 +125,7 @@ int main(int argc, char *argv[])
 
     //matrix on host which holds the characters, each row will go to a core
     char css[num_cores][el_chunk_len];
+    char iss[num_cores][el_chunk_len];
     //on the device
     char *d_css;
     //hashes on the device
@@ -145,6 +160,17 @@ int main(int argc, char *argv[])
     cudaMemcpy(d_css, css, nchars, cudaMemcpyHostToDevice);
 
     dim3 block (num_cores);//str_length/pattern_length
+    //__global__ void findHashes(char *d_css, int d_len, int *d_iss, int pattern_length, int d, int q, int p)
+    int p=pow(d, pattern_length-1);
+    findHashes<<<1, num_cores>>>(d_css, el_chunk_len, pattern, d_iss, pattern_length, d, q, p);
+
+    cudaMemcpy(d_iss, iss, nchars, cudaMemcpyDeviceToHost);
+    for (i=0;i<num_cores;i++)
+    {
+        for (j=0;j<el_chunk_len;j++)
+            printf("%d ", iss[i][j]);
+        printf("\n");
+    }
 
     int pos = rk_matcher(str, pattern, prime, q);
     //printf("%d", pos);
