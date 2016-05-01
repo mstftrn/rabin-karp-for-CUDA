@@ -105,15 +105,39 @@ __global__ void findHashes(char *d_css, int d_len, int *d_iss,
 
 }
 
+__global__ void seekPattern(char *d_css, int d_len, int *d_iss,
+                int pattern_length, char* pattern, int d, int p0) 
+{
+	int i = 0;
+        int j=0;
+	int ind = d_len * threadIdx.x;
+	d_iss += ind;
+	d_css += ind;
+
+	for (i = 0; i < d_len - pattern_length + 1; i++) {
+		if (d_iss[i] == p0) {
+			for (j = 0; j < pattern_length; j++) {
+				if (pattern[j] != d_css[i + j]) {
+					break;
+				} else if (j == pattern_length - 1) {
+
+			//		printf("ThreadId: %d\n", threadIdx.x);
+					printf("pos:%d\n", threadIdx.x*(d_len-pattern_length+1)+i-pattern_length+1);
+				}
+			}
+		}
+	}
+
+}
 int main(int argc, char *argv[])
 {
 	int i = 0;
 	int j = 0;
-	char str[] = "bababanaparaver";
+	char str[] = "bababanaparaverbababanaparaverbababanaparaverbababanaparaverbababanaparaverbababanaparaverbababanaparaver";
 	char pattern[] = "aba";
 	int d = 3;
 	//int q = 50000;
-	int num_cores = 4;
+	int num_cores = 8;
 
 	//CHECK(cudaDeviceReset());
 
@@ -129,11 +153,13 @@ int main(int argc, char *argv[])
 	int iss[num_cores][el_chunk_len];
 	//on the device
 	char *d_css;
+        char *d_pattern;
 	//hashes on the device
 	int *d_iss;
 	int nchars = num_cores * el_chunk_len;
 	cudaMalloc((char **)&d_css, nchars * sizeof(char));
 	cudaMalloc((int **)&d_iss, nchars * sizeof(int));
+        cudaMalloc((char **)&d_pattern, pattern_length*sizeof(char));
 
 	//initial zeroes
 	for (i = 0; i < pattern_length - 1; i++)
@@ -159,22 +185,37 @@ int main(int argc, char *argv[])
 
 	//transfer css to device
 	cudaMemcpy(d_css, css, nchars, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_css, css, nchars, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_pattern, pattern, pattern_length, cudaMemcpyHostToDevice);
 
 	dim3 block(num_cores);	//str_length/pattern_length
 	//__global__ void findHashes(char *d_css, int d_len, int *d_iss, int pattern_length, int d, int q, int p)
 	int p = pow(d, pattern_length - 1);
 	findHashes <<< 1, num_cores >>> (d_css, el_chunk_len, d_iss,
 					 pattern_length, d, /*q,*/ p);
+
+        //find the hash of the pattern
+        int pw = 1;
+        int p0=0;
+        for (i=0; i < pattern_length; i++) {
+            p0 += pw * (pattern[i]);
+            pw *= d;
+        }
+	//printf("%d\n", p0);
+        
+        seekPattern<<<1, num_cores>>>(d_css, el_chunk_len, d_iss,
+                pattern_length, d_pattern, d, p0); 
+
 	//printf("%d %d %d %d %d \n", el_chunk_len, pattern_length, d, q, p);
 
-	cudaMemcpy(iss, d_iss, nchars * sizeof(int), cudaMemcpyDeviceToHost);
-	for (i=0;i<num_cores;i++)
+	//cudaMemcpy(iss, d_iss, nchars * sizeof(int), cudaMemcpyDeviceToHost);
+	/*for (i=0;i<num_cores;i++)
 	   {
 	   for (j=0;j<el_chunk_len;j++)
 	   	printf("%d ", iss[i][j]);
 	   printf("\n");
 	   } 
-
+	*/
 	cudaFree(d_iss);
 	cudaFree(d_css);
 
