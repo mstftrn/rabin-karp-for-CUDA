@@ -81,7 +81,7 @@ int rk_matcher(char *str, char *pattern, int d, int q)
 }
 
 __global__ void findHashes(char *d_css, int d_len, int *d_iss,
-			   int pattern_length, int d, int q, int p)
+			   int pattern_length, int d, /*int q,*/ int p)
 {
 	int i = 0;
 	int ind = d_len * threadIdx.x;
@@ -94,12 +94,12 @@ __global__ void findHashes(char *d_css, int d_len, int *d_iss,
 		d_iss[0] += pw * (d_css[i]);
 		pw *= d;
 	}
-	d_iss[0] %= q;
+	//d_iss[0] %= q;
 	//printf("%d ", d_iss[0]);
 
 	for (i = 1; i < d_len - pattern_length + 1; i++) {
 		d_iss[i] = ((d_css[i + pattern_length - 1]) * p
-			    + (d_iss[i - 1] - (d_css[i - 1])) / d) % q;
+			    + (d_iss[i - 1] - (d_css[i - 1])) / d); //% q;
         //printf("%d ",d_iss[i]);
 	}
 
@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
 	char str[] = "bababanaparaver";
 	char pattern[] = "aba";
 	int d = 3;
-	int q = 50000;
+	//int q = 50000;
 	int num_cores = 4;
 
 	//CHECK(cudaDeviceReset());
@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
 	//__global__ void findHashes(char *d_css, int d_len, int *d_iss, int pattern_length, int d, int q, int p)
 	int p = pow(d, pattern_length - 1);
 	findHashes <<< 1, num_cores >>> (d_css, el_chunk_len, d_iss,
-					 pattern_length, d, q, p);
+					 pattern_length, d, /*q,*/ p);
 	//printf("%d %d %d %d %d \n", el_chunk_len, pattern_length, d, q, p);
 
 	cudaMemcpy(iss, d_iss, nchars * sizeof(int), cudaMemcpyDeviceToHost);
